@@ -221,6 +221,16 @@
 	  return names.sort().join("-");
 	}
 
+	// performance polyfill for nodejs
+	if (typeof performance === "undefined") {
+	  const nowOffset = Date.now();
+	  global.performance = {
+	    now() {
+	      return Date.now() - nowOffset;
+	    }
+	  };
+	}
+
 	class Query {
 	  /**
 	   * @param {Array(Component)} Components List of types of components to query
@@ -350,7 +360,7 @@
 
 	    this.alive = false;
 
-	    //if there are state components on a entity, it can't be removed
+	    //if there are state components on a entity, it can't be removed completely
 	    this.numStateComponents = 0;
 	  }
 
@@ -403,8 +413,8 @@
 	    return this;
 	  }
 
-	  removeComponent(Component, forceRemove) {
-	    this._world.entityRemoveComponent(this, Component, forceRemove);
+	  removeComponent(Component, forceImmediate) {
+	    this._world.entityRemoveComponent(this, Component, forceImmediate);
 	    return this;
 	  }
 
@@ -433,8 +443,8 @@
 	    return false;
 	  }
 
-	  removeAllComponents(forceRemove) {
-	    return this._world.entityRemoveAllComponents(this, forceRemove);
+	  removeAllComponents(forceImmediate) {
+	    return this._world.entityRemoveAllComponents(this, forceImmediate);
 	  }
 
 	  // EXTRAS
@@ -448,8 +458,8 @@
 	    this._components = {};
 	  }
 
-	  remove(forceRemove) {
-	    return this._world.removeEntity(this, forceRemove);
+	  remove(forceImmediate) {
+	    return this._world.removeEntity(this, forceImmediate);
 	  }
 	}
 
@@ -1082,6 +1092,9 @@
 
 	const Version = pjson.version;
 
+	const hasWindow = typeof window !== "undefined";
+	const hasCustomEvent = typeof CustomEvent !== "undefined";
+
 	class World {
 	  constructor() {
 	    this.componentsManager = new ComponentManager(this);
@@ -1092,7 +1105,7 @@
 
 	    this.eventQueues = {};
 
-	    if (typeof CustomEvent !== "undefined") {
+	    if (hasWindow && hasCustomEvent) {
 	      var event = new CustomEvent("ecsy-world-created", {
 	        detail: { world: this, version: Version }
 	      });
@@ -1750,11 +1763,13 @@
 	  );
 	}
 
-	const urlParams = new URLSearchParams(window.location.search);
+	if (typeof window !== "undefined") {
+	  const urlParams = new URLSearchParams(window.location.search);
 
-	// @todo Provide a way to disable it if needed
-	if (urlParams.has("enable-remote-devtools")) {
-	  enableRemoteDevtools();
+	  // @todo Provide a way to disable it if needed
+	  if (urlParams.has("enable-remote-devtools")) {
+	    enableRemoteDevtools();
+	  }
 	}
 
 	exports.Component = Component;
